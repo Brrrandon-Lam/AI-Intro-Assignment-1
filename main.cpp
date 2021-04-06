@@ -17,21 +17,57 @@ struct Node { //keep track of the parent node, current node and depth.
 //There are two game states: the left river, and the right river, each of which contain W-n wolves, C-m chickens and 0 or 1 boats, where n, m <= W, C respectively.
 //We will create two GameState objects, one called Left and one called Right, where each game object contains the number of items on the river.
 
+//TEMPORARY GAME STRUCTURE
 class River{
 	public:
-		int sum(); //return sum
+		int numObjects(); //return total number of objects on a river side
 		int getNumWolves(); // return num wolves
 		int getNumChickens(); //return num chickens
 		bool hasBoat(); //return 1 or 0 for boat being present
-		void setNumWolves(); //set num wolves.
-		void setNumChickens(); //set num chickens
-		void setBoat(); //set boat to 1 or 0
+		void setNumWolves(int wolfgang); //set num wolves.
+		void setNumChickens(int chickengang); //set num chickens
+		void setBoat(bool boatVal); //set boat to 1 or 0
 	private:
 		int numWolves;
 		int numChickens;
 		bool boat;
 };
 
+int River::numObjects() {
+	int BOATGANG = 0;
+	if (hasBoat == true) {
+		BOATGANG = 1;
+	}
+	int total = getNumWolves() + getNumChickens() + BOATGANG;
+}
+
+// MUTATORS
+
+void River::setNumWolves(int wolfgang) {
+	numWolves = wolfgang;
+}
+
+void River::setNumChickens(int chickengang) {
+	numChickens = chickengang;
+}
+
+void River::setBoat(bool boatVal) {
+	boat = boatVal;
+}
+
+// ACCESSORS
+
+int River::getNumChickens() {
+	return numChickens;
+}
+
+int River::getNumWolves() {
+	return numWolves;
+}
+
+bool River::hasBoat() {
+	return boat;
+}
 
 
 //IMPORTANT: Priority queue provided by <queue> in C++ is max by default, be sure to change this to a min priority queue.
