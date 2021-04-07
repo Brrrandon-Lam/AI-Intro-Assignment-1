@@ -6,14 +6,6 @@
 #include <queue>
 #include <stack>
 
-//Create graph structure
-
-struct Node { //keep track of the parent node, current node and depth.
-	Node* parent;
-	Node* current;
-	int depth;
-};
-
 //There are two game states: the left river, and the right river, each of which contain W-n wolves, C-m chickens and 0 or 1 boats, where n, m <= W, C respectively.
 //We will create two GameState objects, one called Left and one called Right, where each game object contains the number of items on the river.
 
@@ -23,7 +15,14 @@ struct Node { //keep track of the parent node, current node and depth.
 *  second line right: numChickens, numWolves, boat
 */
 
-class River{
+class GameState {
+	public:
+		River leftBank;
+		River rightBank;
+	private:
+};
+
+class River: public GameState {
 	public:
 		int numObjects(); //return total number of objects on a river side
 		int getNumWolves(); // return num wolves
@@ -36,6 +35,12 @@ class River{
 		int numWolves;
 		int numChickens;
 		bool boat;
+};
+
+struct Node { //keep track of the parent node, current node and depth.
+	GameState currentState;
+	Node* previous;
+	int depth;
 };
 
 int River::numObjects() {
@@ -94,15 +99,21 @@ int main(int argc, char** argv) {
 		std::cout << "Invalid number of arguments. argc != 5" << std::endl;
 		return 1;
 	}
-	std::string initialStateFile = argv[1];
+	//store the passed arguments in string variables to be used for later.
+	std::string initialStateFile = argv[1]; 
 	std::string goalStateFile = argv[2];
 	std::string mode = argv[3];
 	std::string outputFile = argv[4];
 
-	class River leftBank;
+	
+	//create the four objects for our stuff. leftBank/rightBank correspond to start.txt and the goal objects correspond to goal.txt
+	/*class River leftBank;
 	class River rightBank;
 	class River leftGoal;
-	class River rightGoal;
+	class River rightGoal;*/
+
+	class GameState state;
+	class GameState goalState;
 
 	//open the initial and goal state files for reading with filein, and open the output file with fileout.
 	std::ofstream outputFOUT;
@@ -116,8 +127,8 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 
-	//fill initial and goal states
-	readFromFiles(leftBank, rightBank, leftGoal, rightGoal, initialFIN, goalFIN);
+	//fill initial and goal states with information from text files (see header)
+	readFromFiles(state, goalState, initialFIN, goalFIN);
 
 	/*
 	std::cout << "left bank initial: " << leftBank.getNumChickens() << " " << leftBank.getNumWolves() << " " << leftBank.hasBoat() << std::endl;
@@ -205,3 +216,77 @@ void readFromFiles(River& leftBank, River& rightBank, River& leftGoal, River& ri
 	//Our 4 objects now have all the data from the files so we are done
 
 }
+
+/* Depth First Search 
+*  Return solution or failure
+* Initialize the frontier using the initial state of the problem
+*  Initialize the explored set to be empty
+*  Loop:
+*	If the frontier is empty, return failure
+*   Choose a leaf node, remove it from the frontier
+*   If the node contains a goal state, return corresponding solution
+*   Add the node to the explored set
+*   Expand chosen node, add the resulting node to the frontier
+*      Only if not in the forntier or explored set
+* 
+*   Implement using a LIFO queue (Stack) <-This makes the generic graph search a depth first search
+*/
+
+Node depthFirstSearch(GameState& state, GameState& goalState) {
+	
+	int nodesExpanded = 0;
+	//Create our initial node that contains the initial game state.
+	Node initialState = new Node(); //create new node 
+	initialState->currentState = state; //store the passed game state (the initial state)
+	initialState->previous = NULL; //the initial game state has no previous game state, so set to null.
+
+	//initialize the explored set as empty
+	vector<Node> exploredSet;
+	//create the path to hold nodes that we will expand on (the frontier)
+	stack<Node> frontier;
+	//push the initial state onto the frontier
+	frontier.push_back(initialState);
+
+	while (!frontier.empty()) {
+		//get the last-in value of the frontier.
+		initialState = frontier.top();
+		//remove the value from the frontier
+		frontier.pop();
+		//BASE CASE: If the initial state is the goal state, then we have already found the shortest path to the goal and can simply return the initial state.
+		if (initialState->currentState == goalState) {
+			return initialState;
+		}
+		nodesExpanded++;
+		Node* successorNode;
+
+		frontier.push_back(successor(initialState, successorNode))
+		//if we want to move one chicken and one wolf
+		//if we want to move two chickens
+		//if we want to move two wolves
+		//if we want to move one chicken
+		//if we want to move one wolf
+
+	}
+
+	return NULL; //if we exit the while loop with nothing then there was no solution
+}
+
+Node successor(Node& initialState, Node& successorNode) {
+
+}
+
+
+/* Breadth First Search
+*  Return solution or failure
+* Initialize the frontier using the initial state of hte problem
+*  Initialize the explored set to be empty
+*  Loop:
+*	If the frontier is empty, return failure
+*   Choose a leaf node, remove it from the frontier
+*   If the node contains a goal state, return corresponding solution
+*   Add the node to the explored set
+*   Expand chosen node, add the resulting node to the frontier
+*      Only if not in the forntier or explored set
+*
+*   Implement using a FIFO Queue <-This makes the generic graph search a Breadth First Search
+*/
