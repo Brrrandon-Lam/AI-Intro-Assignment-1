@@ -34,19 +34,34 @@ class GameState {
 	public:
 		River leftBank;
 		River rightBank;
-		//friend bool operator== (GameState& left, GameState& right);
+		friend bool operator== (GameState& left, GameState& right);
 };
 
-/*bool operator== (GameState& left, GameState& right) {
-	bool b;
-	//left.leftBank
-	//left.rightBank
-	//right.leftBank
-	//right.rightBank
+bool operator== (GameState& left, GameState& right) {
+	bool b = true;
+	
+	if (!(left.leftBank.getNumChickens() == right.leftBank.getNumChickens())) {
+		b = false;
+	}
+	if (!(left.leftBank.getNumWolves() == right.leftBank.getNumWolves())) {
+		b = false;
+	}
+	if (!(left.rightBank.getNumChickens() == right.rightBank.getNumChickens())) {
+		b = false;
+	}
+	if (!(left.rightBank.getNumWolves() == right.rightBank.getNumWolves())) {
+		b = false;
+	}
+	if (!(left.rightBank.hasBoat() == right.rightBank.hasBoat())) {
+		b = false;
+	}
+	if (!(left.leftBank.hasBoat() == right.leftBank.hasBoat())) {
+		b = false;
+	}
 
 	//if all of those line up for left and right, then return true
 	return b;
-}*/
+}
 
 
 struct Node { //keep track of the parent node, current node and depth.
@@ -104,6 +119,12 @@ bool River::hasBoat() {
 //Function Declarations
 
 void readFromFiles(GameState&, GameState&, std::ifstream&, std::ifstream&);
+Node* moveOneEach(Node* initialState);
+Node* moveTwoChickens(Node* initialState);
+Node* moveTwoWolves(Node* initialState);
+Node* moveOneChicken(Node* initialState);
+Node* moveOneWolf(Node* initialState);
+Node* depthFirstSearch(GameState& state, GameState& goalState);
 
 int main(int argc, char** argv) {
 	if (argc != 5) { //check for correct number of arguments
@@ -126,6 +147,7 @@ int main(int argc, char** argv) {
 
 	class GameState state;
 	class GameState goalState;
+	Node* path = new Node();
 
 	//open the initial and goal state files for reading with filein, and open the output file with fileout.
 	std::ofstream outputFOUT;
@@ -158,7 +180,8 @@ int main(int argc, char** argv) {
 		std::cout << "Write code for Breadth-First Search" << std::endl;
 	}
 	else if (mode.compare("dfs") == 0) {
-		std::cout << "Write code for Depth-First Search" << std::endl;
+		path = depthFirstSearch(state, goalState);
+		std::cout << "Path was found in depth first search" << std::endl;
 	}
 	else if (mode.compare("iddfs") == 0) {
 		std::cout << "Write code for Iterative Deepening Depth-First Search" << std::endl;
@@ -169,6 +192,26 @@ int main(int argc, char** argv) {
 	else { //bad case
 		std::cout << "No valid mode entered. Program only supports bfs, dfs, iddfs and astar graph algorithms" << std::endl;
 		return 1;
+	}
+	//issue with writing to output file
+	if (path == NULL) {
+		outputFOUT << "No solution found after expanding " << path->depth << "nodes\n" << std::endl;
+	}
+	else {
+		std::cout << "Reached file output" << std::endl;
+		outputFOUT << "Goal state found after searching to depth: " << path->depth << " with the following path." << std::endl;
+		outputFOUT << "Format: Initial state is at the bottom and the goal state is at the top?" << std::endl;
+		while (path != NULL) {
+			//because i feel nice this is split into multiple lines :)
+			outputFOUT << path->currentState.leftBank.getNumChickens() << "," 
+				<< path->currentState.leftBank.getNumWolves() << "," 
+				<< path->currentState.leftBank.hasBoat() << '\n'
+				<< path->currentState.rightBank.getNumChickens() << "," 
+				<< path->currentState.rightBank.getNumWolves() << "," 
+				<< path->currentState.rightBank.hasBoat() << std::endl;
+			path = path->previous;
+			std::cout << "one state written to path" << std::endl;
+		}
 	}
 
 	//write solution to output file and print to the terminal, then close the output file
@@ -258,71 +301,210 @@ Node* depthFirstSearch(GameState& state, GameState& goalState) {
 	std::stack<Node*> frontier; //push()
 	//push the initial state onto the frontier
 	frontier.push(initialState);
-
 	while (!frontier.empty()) {
 		//get the last-in value of the frontier.
 		initialState = frontier.top();
 		//remove the value from the frontier
 		frontier.pop();
 		//BASE CASE: If the initial state is the goal state, then we have already found the shortest path to the goal and can simply return the initial state.
-		
-		if (initialState->currentState == goalState) {
-			return initialState; //may need to operator overload the == for object comparison.
+		//std::cout << "Iteration" << std::endl;
+		if (initialState->currentState == goalState) { //use our operator overload to compare two game objects properly.
+			std::cout << "GOAL FOUND" << std::endl;
+			return initialState;
 		}
 
 		//NEED TO KEEP TRACK OF EXPANDED NODES (NUMBER) UPDATE BEFORE EXPANSION, BUT AFTER POPPING FROM STACK
 		//DONT EXPAND IF IT IS A GOAL NODE
 
-		//nodesExpanded++;
+		nodesExpanded++;
+		Node* successorState0 = moveOneEach(initialState);
+		Node* successorState1 = moveTwoChickens(initialState);
+		Node* successorState2 = moveTwoWolves(initialState);
+		Node* successorState3 = moveOneChicken(initialState);
+		Node* successorState4 = moveOneWolf(initialState);
 
+		std::cout << "Succ created" << std::endl;
 
-		//expansion function()
-			//expands the popped node
-
-			//check and make sure the current node is not in the explored set
-				//for runtime purposes
-			//calls successor on the popped node
-				//determines which states are valid to go to from the current
-				//if successor finds one, place it in the frontier
-					//then place the popped node into the exploredSet (initialState Node)
-				
-
-
-
-		Node* successorNode;
+		std::vector<Node*>::iterator temp;
+		bool explored = false;
+		std::cout << "succesor states created" << std::endl;
 		
-
-		//frontier.push_back(successor(initialState, successorNode))
-
-		//all possible actions that can be done:
-
-		//if we want to move one chicken and one wolf
-		//if we want to move two chickens
-		//if we want to move two wolves
-		//if we want to move one chicken
-		//if we want to move one wolf
-
-		//if( we are at initial state )
-		// then we can move 1 chik and 1 wolf --> resulting state is a successor (AND hasn't already been added to the frontier or explored set)
-		// insert this state/node into the frontier for evaluation
-		// same with 1 wolf and 2 wolves
-		// same with 2 chickens and 1 chik
-		// all of the true possibilities should be added to the frontier, then pop the top of the stack
-		// continue until we find a successor state that is the goal state
-		// return path or unsuccessful
-
-		//if( successor state leads to an already visited state (exploredSet))
-			//essentially only add a state that has not been in the frontier OR the explored set
-			//only adds unique states
-		// then ignore that option
-		// do not include it into the frontier, as itis the graph version
-		//else
-		// add as indicated
-		return;
+		//if a successor state is in the explored state, we do not push it onto the frontier
+		//else we push it onto the frontier.
 	}
 
 	return NULL; //if we exit the while loop with nothing then there was no solution
 }
+
+Node* moveOneEach(Node* initialState) {
+	Node* resultingState = new Node();
+	resultingState->currentState = initialState->currentState;
+	resultingState->depth = initialState->depth + 1;
+	if (initialState->currentState.leftBank.hasBoat()) { //boat is on the left bank
+		if ((initialState->currentState.leftBank.getNumWolves() >= 1) && (initialState->currentState.leftBank.getNumChickens() >= 1)) { //if there are animals we can move on the left bank
+			if ((initialState->currentState.rightBank.getNumWolves() + 1) <= (initialState->currentState.rightBank.getNumChickens() + 1)) { //if moving them doesnt invalidate the right bank
+				//let my animals go
+				resultingState->currentState.rightBank.setNumChickens(initialState->currentState.leftBank.getNumChickens() + 1);
+				resultingState->currentState.rightBank.setNumWolves(initialState->currentState.leftBank.getNumWolves() + 1);
+				resultingState->currentState.leftBank.setNumChickens(initialState->currentState.leftBank.getNumChickens() - 1);
+				resultingState->currentState.leftBank.setNumWolves(initialState->currentState.leftBank.getNumWolves() - 1);
+				resultingState->previous = initialState;
+
+			}
+		}
+	}
+	else if(initialState->currentState.rightBank.hasBoat()){ //boat is on the right bank
+		if ((initialState->currentState.rightBank.getNumWolves() >= 1) && (initialState->currentState.rightBank.getNumChickens() >= 1)) { //if there are animals on the right bank to move
+			if ((initialState->currentState.leftBank.getNumWolves() + 1) <= (initialState->currentState.leftBank.getNumChickens() + 1)) {  //if moving them doesnt invalidate the left bank
+				//and the lord said this was a valid move
+				resultingState->currentState.rightBank.setNumChickens(initialState->currentState.leftBank.getNumChickens() - 1);
+				resultingState->currentState.rightBank.setNumWolves(initialState->currentState.leftBank.getNumWolves() - 1);
+				resultingState->currentState.leftBank.setNumChickens(initialState->currentState.leftBank.getNumChickens() + 1);
+				resultingState->currentState.leftBank.setNumWolves(initialState->currentState.leftBank.getNumWolves() + 1);
+				resultingState->previous = initialState;
+			}
+		}
+	}
+	else {
+		return initialState;
+	}
+	return resultingState;
+}
+
+Node* moveTwoChickens(Node* initialState) {
+	Node* resultingState = new Node();
+	resultingState->currentState = initialState->currentState;
+	resultingState->depth = initialState->depth + 1;
+	if (initialState->currentState.leftBank.hasBoat()) { //boat is on the left bank
+		if (initialState->currentState.leftBank.getNumChickens() >= 2) { //if there are two chickens we can move
+			if ((initialState->currentState.rightBank.getNumWolves()) <= (initialState->currentState.rightBank.getNumChickens() + 2)) { //if numChickens + 2 >= numWolves
+				//let my animals go
+				resultingState->currentState.rightBank.setNumChickens(initialState->currentState.leftBank.getNumChickens() + 2);
+				resultingState->currentState.leftBank.setNumChickens(initialState->currentState.leftBank.getNumChickens() - 2);
+				resultingState->previous = initialState;
+
+			}
+		}
+	}
+	else if (initialState->currentState.rightBank.hasBoat()) {
+		if (initialState->currentState.rightBank.getNumChickens() >= 2) { //if there are animals on the right bank to move
+			if ((initialState->currentState.leftBank.getNumWolves()) <= (initialState->currentState.leftBank.getNumChickens() + 2)) {  //if moving them doesnt invalidate the left bank
+				//and the lord said this was a valid move
+				resultingState->currentState.rightBank.setNumChickens(initialState->currentState.leftBank.getNumChickens() - 2);
+				resultingState->currentState.leftBank.setNumChickens(initialState->currentState.leftBank.getNumChickens() + 2);
+				resultingState->previous = initialState;
+			}
+		}
+	}
+	else {
+		return initialState;
+	}
+	return resultingState;
+}
+
+Node* moveTwoWolves(Node* initialState) {
+	Node* resultingState = new Node();
+	resultingState->currentState = initialState->currentState;
+	resultingState->depth = initialState->depth + 1;
+	if (initialState->currentState.leftBank.hasBoat()) { //boat is on the left bank
+		if (initialState->currentState.leftBank.getNumWolves() >= 2) { //if there are two wolves
+			if ((initialState->currentState.rightBank.getNumWolves() + 2) <= (initialState->currentState.rightBank.getNumChickens())) { //if numChickens >= numWolves + 2
+				//unleash the hounds
+				resultingState->currentState.rightBank.setNumWolves(initialState->currentState.leftBank.getNumWolves() + 2); //add two wolves to the right bank
+				resultingState->currentState.leftBank.setNumWolves(initialState->currentState.leftBank.getNumWolves() - 2); //
+				resultingState->previous = initialState;
+
+			}
+		}
+	}
+	else if (initialState->currentState.rightBank.hasBoat()) {
+		if (initialState->currentState.rightBank.getNumWolves() >= 2) { //if there 2 wolves we can move
+			if ((initialState->currentState.leftBank.getNumWolves() + 2) <= (initialState->currentState.leftBank.getNumChickens())) {  //if numChickens >= numWolves + 2;
+			//and the lord said this was a valid move
+				resultingState->currentState.rightBank.setNumWolves(initialState->currentState.leftBank.getNumWolves() - 2);
+				resultingState->currentState.leftBank.setNumWolves(initialState->currentState.leftBank.getNumWolves() + 2);
+				resultingState->previous = initialState;
+			}
+		}
+	}
+	else {
+		return initialState;
+	}
+	return resultingState;
+
+}
+
+Node* moveOneWolf(Node* initialState) {
+	Node* resultingState = new Node();
+	resultingState->currentState = initialState->currentState;
+	resultingState->depth = initialState->depth + 1;
+	if (initialState->currentState.leftBank.hasBoat()) { //boat is on the left bank
+		if (initialState->currentState.leftBank.getNumWolves() >= 1) { //if there are two wolves
+			if ((initialState->currentState.rightBank.getNumWolves() + 1) <= (initialState->currentState.rightBank.getNumChickens())) { //if numChickens >= numWolves + 1
+				//unleash the hounds
+				resultingState->currentState.rightBank.setNumWolves(initialState->currentState.leftBank.getNumWolves() + 1); //add two wolves to the right bank
+				resultingState->currentState.leftBank.setNumWolves(initialState->currentState.leftBank.getNumWolves() - 1); 
+				resultingState->previous = initialState;
+
+			}
+		}
+	}
+	else if (initialState->currentState.rightBank.hasBoat()) {
+		if (initialState->currentState.rightBank.getNumWolves() >= 1) { //if there 2 wolves we can move
+			if ((initialState->currentState.leftBank.getNumWolves() + 1) <= (initialState->currentState.leftBank.getNumChickens())) {  //if numChickens >= numWolves + 1;
+			//and the lord said this was a valid move
+				resultingState->currentState.rightBank.setNumWolves(initialState->currentState.leftBank.getNumWolves() - 1);
+				resultingState->currentState.leftBank.setNumWolves(initialState->currentState.leftBank.getNumWolves() + 1);
+				resultingState->previous = initialState;
+			}
+		}
+	}
+	else {
+		return initialState;
+	}
+	return resultingState;
+}
+
+Node* moveOneChicken(Node* initialState) {
+	Node* resultingState = new Node();
+	resultingState->currentState = initialState->currentState;
+	resultingState->depth = initialState->depth + 1;
+	if (initialState->currentState.leftBank.hasBoat()) { //boat is on the left bank
+		if (initialState->currentState.leftBank.getNumChickens() >= 1) { //if there are two chickens we can move
+			if ((initialState->currentState.rightBank.getNumWolves()) <= (initialState->currentState.rightBank.getNumChickens() + 1)) { //if numChickens + 2 >= numWolves
+				//let my animals go
+				resultingState->currentState.rightBank.setNumChickens(initialState->currentState.leftBank.getNumChickens() + 1);
+				resultingState->currentState.leftBank.setNumChickens(initialState->currentState.leftBank.getNumChickens() - 1);
+				resultingState->previous = initialState;
+			}
+		}
+	}
+	else if (initialState->currentState.rightBank.hasBoat()) {
+		if (initialState->currentState.rightBank.getNumChickens() >= 1) { //if there are animals on the right bank to move
+			if ((initialState->currentState.leftBank.getNumWolves()) <= (initialState->currentState.leftBank.getNumChickens() + 1)) {  //if moving them doesnt invalidate the left bank
+				//and the lord said this was a valid move
+				resultingState->currentState.rightBank.setNumChickens(initialState->currentState.leftBank.getNumChickens() - 1);
+				resultingState->currentState.leftBank.setNumChickens(initialState->currentState.leftBank.getNumChickens() + 1);
+				resultingState->previous = initialState;
+			}
+		}
+	}
+	else {
+		return initialState;
+	}
+	return resultingState;
+}
+
+/*
+void insertDFS(Node* initialState, Node* successorState, vector<Node*> exploredSet, stack<Node*> frontier) {
+	currentNode = new Node();
+	currentNode->state = successorState;
+	currentNode->previous = initialState;
+	currentNode->depth = initialState->depth + 1;
+	frontier.push(currentNode);
+	//exploredSet.push_back(currentNode);
+}
+*/
 
 /*******************************************************************************************************************
 * Function Name: successor
