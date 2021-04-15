@@ -71,8 +71,10 @@ struct Node { //keep track of the parent node, current node and depth.
 	GameState currentState;
 	Node* previous;
 	int depth;
+	int priority;
 };
 
+//used for calculating a given state's heuristic. gets the total number of animals on the respective side of the bank
 int River::numObjects() {
 	int BOATGANG = 0;
 	if (hasBoat() == 1) {
@@ -95,7 +97,6 @@ void River::setBoat(bool boatVal) {
 }
 
 // ACCESSORS
-
 int River::getNumChickens() {
 	return numChickens;
 }
@@ -107,15 +108,19 @@ int River::getNumWolves() {
 bool River::hasBoat() {
 	return boat;
 }
+
+
 //Function Declarations
-
-
 bool checkExplored(std::vector<Node*> exploredSet, GameState successorState);
 void readFromFiles(GameState&, GameState&, std::ifstream&, std::ifstream&);
 bool validSuccessor(GameState* successorState);
+void refreshStates(std::vector<Node*> exploredSet);
 void move(GameState initialState, GameState* successorState, int numChickens, int numWolves);
 Node* depthFirstSearch(GameState& state, GameState& goalState, int& nodesExpanded);
 Node* breadthFirstSearch(GameState& state, GameState& goalState, int& nodesExpanded);
+Node* iddfs(GameState& state, GameState& goalState, int& nodesExpanded);
+Node* astar(GameState& state, GameState& goalState, int& nodesExpanded);
+void heuristicFunc(Node* initialState, GameState& goalState);
 
 int main(int argc, char** argv) {
 	if (argc != 5) { //check for correct number of arguments
@@ -128,7 +133,7 @@ int main(int argc, char** argv) {
 	std::string goalStateFile = argv[2];
 	std::string mode = argv[3];
 	std::string outputFile = argv[4];
-
+	//create the necessary game states
 	class GameState state;
 	class GameState goalState;
 
@@ -154,8 +159,9 @@ int main(int argc, char** argv) {
 	int nodesExpanded = 0;
 	//Determine which graph algorithm to run by mode using the compare() function
 	if (mode.compare("bfs") == 0) {
+		std::cout << "Entering BFS" << std::endl;
 		goalPath = breadthFirstSearch(state, goalState, nodesExpanded);
-		std::cout << "Write code for Breadth-First Search" << std::endl;
+		std::cout << "breadth first search completed." << std::endl;
 	}
 	else if (mode.compare("dfs") == 0) {
 		std::cout << "Entering DFS" << std::endl;
@@ -163,10 +169,14 @@ int main(int argc, char** argv) {
 		std::cout << "Depth first search completed." << std::endl;
 	}
 	else if (mode.compare("iddfs") == 0) {
-		std::cout << "Write code for Iterative Deepening Depth-First Search" << std::endl;
+		std::cout << "Entering Iterative Deepening Depth-First Search" << std::endl;
+		goalPath = iddfs(state, goalState, nodesExpanded);
+		std::cout << "ID Depth first search completed." << std::endl;
 	}
 	else if (mode.compare("astar") == 0) {
-		std::cout << "Write code for A* Search" << std::endl;
+		std::cout << "Entering astar search" << std::endl;
+		goalPath = astar(state, goalState, nodesExpanded);
+		std::cout << "A* search completed." << std::endl;
 	}
 	else { //bad case
 		std::cout << "No valid mode entered. Program only supports bfs, dfs, iddfs and astar graph algorithms" << std::endl;
@@ -176,12 +186,14 @@ int main(int argc, char** argv) {
 		outputFOUT << "No solution found after expanding nodes\n" << std::endl;
 	}
 	else {
-		std::cout << "Reached file output" << std::endl;
+		std::cout << "Writing contents to: " << outputFile << std::endl;
 		outputFOUT << "Nodes expanded: " << nodesExpanded << std::endl;
 		outputFOUT << "Goal state found after searching to depth: " << goalPath->depth << " with the following path." << std::endl;
-		outputFOUT << "Format: Initial state is at the bottom and the goal state is at the top" << std::endl;
+		outputFOUT << "Format: Initial state is at the bottom and the goal state is at the top\n" << std::endl;
+
+		//passes in the nodesExpanded as well as the depth the goal was found at
 		while (goalPath != NULL) {
-			//because i feel nice this is split into multiple lines :)
+			//all the elements that explain the current state of the game
 			outputFOUT << goalPath->currentState.leftBank.getNumChickens() << ","
 				<< goalPath->currentState.leftBank.getNumWolves() << ","
 				<< goalPath->currentState.leftBank.hasBoat() << '\n'
@@ -189,7 +201,7 @@ int main(int argc, char** argv) {
 				<< goalPath->currentState.rightBank.getNumWolves() << ","
 				<< goalPath->currentState.rightBank.hasBoat() << "\n" << std::endl;
 			goalPath = goalPath->previous;
-			std::cout << "one state written to path" << std::endl;
+			//std::cout << "one state written to path" << std::endl;
 		}
 	}
 
@@ -264,8 +276,15 @@ void readFromFiles(GameState& state, GameState& goalState, std::ifstream& initia
 *   Implement using a LIFO queue (Stack) <-This makes the generic graph search a depth first search
 */
 
+/*******************************************************************************************************************
+* Function Name: dfs
+* Description: runs through dfs version of the chicken and wolves problem, for additional comments: see astar
+* Parameters: GameState& state, GameState& goalState, int& nodesExpanded
+* Output: path of nodes leading to goal or no solution.
+******************************************************************************************************************/
+
 Node* depthFirstSearch(GameState& state, GameState& goalState, int& nodesExpanded) {
-	
+	nodesExpanded = 0;
 	std::stack<Node*> frontier; //the frontier. It is a stack of nodes that we will expand upon in LIFO order.
 	std::vector<Node*> exploredSet; //contains the set of nodes we've expanded (the explored set).
 	Node* initialState = new Node();
@@ -281,13 +300,14 @@ Node* depthFirstSearch(GameState& state, GameState& goalState, int& nodesExpande
 		frontier.pop(); //pop the last value from the frontier off (pop it off of the stack)
 		std::cout << "Chickens on left, right bank: " << initialState->currentState.leftBank.getNumChickens() << "," << initialState->currentState.rightBank.getNumChickens() << std::endl;
 		std::cout << "Wolves on left, right bank: " << initialState->currentState.leftBank.getNumWolves() << "," << initialState->currentState.rightBank.getNumWolves() << std::endl;
+		//nodesExpanded++;
 		if (initialState->currentState == goalState) { //compare the two objects using our overloaded operator to compare two GameStates.
 			std::cout << "Goal state found" << std::endl;
 			return initialState;
 		}
 		nodesExpanded++; //increment the number of nodes we expanded upon if we have failed to find the goal state.
 		GameState successorState0;
-		move(initialState->currentState, &successorState0, 1, 1);
+		move(initialState->currentState, &successorState0, 1, 0);
 		if (checkExplored(exploredSet, successorState0) == 0 && validSuccessor(&successorState0)) {
 			temp = new Node();
 			temp->currentState = successorState0;
@@ -295,7 +315,7 @@ Node* depthFirstSearch(GameState& state, GameState& goalState, int& nodesExpande
 			temp->depth = initialState->depth + 1;
 			frontier.push(temp);
 			exploredSet.push_back(temp);
-			std::cout << "state 0 pushed into frontier" << std::endl;
+			//std::cout << "state 3 pushed into frontier" << std::endl;
 		}
 		GameState successorState1;
 		move(initialState->currentState, &successorState1, 2, 0);
@@ -306,10 +326,10 @@ Node* depthFirstSearch(GameState& state, GameState& goalState, int& nodesExpande
 			temp->depth = initialState->depth + 1;
 			frontier.push(temp);
 			exploredSet.push_back(temp);
-			std::cout << "state 1 pushed into frontier" << std::endl;
+			//std::cout << "state 1 pushed into frontier" << std::endl;
 		}
 		GameState successorState2;
-		move(initialState->currentState, &successorState2, 0, 2);
+		move(initialState->currentState, &successorState2, 0, 1);
 		if (checkExplored(exploredSet, successorState2) == 0 && validSuccessor(&successorState2)) {
 			temp = new Node();
 			temp->currentState = successorState2;
@@ -317,10 +337,10 @@ Node* depthFirstSearch(GameState& state, GameState& goalState, int& nodesExpande
 			temp->depth = initialState->depth + 1;
 			frontier.push(temp);
 			exploredSet.push_back(temp);
-			std::cout << "state 2 pushed into frontier" << std::endl;
+			//std::cout << "state 4 pushed into frontier" << std::endl;
 		}
 		GameState successorState3;
-		move(initialState->currentState, &successorState3, 1, 0);
+		move(initialState->currentState, &successorState3, 1, 1);
 		if (checkExplored(exploredSet, successorState3) == 0 && validSuccessor(&successorState3)) {
 			temp = new Node();
 			temp->currentState = successorState3;
@@ -328,10 +348,10 @@ Node* depthFirstSearch(GameState& state, GameState& goalState, int& nodesExpande
 			temp->depth = initialState->depth + 1;
 			frontier.push(temp);
 			exploredSet.push_back(temp);
-			std::cout << "state 3 pushed into frontier" << std::endl;
+			//std::cout << "state 0 pushed into frontier" << std::endl;
 		}
 		GameState successorState4;
-		move(initialState->currentState, &successorState4, 0, 1);
+		move(initialState->currentState, &successorState4, 0, 2);
 		if (checkExplored(exploredSet, successorState4) == 0 && validSuccessor(&successorState4)) {
 			temp = new Node();
 			temp->currentState = successorState4;
@@ -339,15 +359,23 @@ Node* depthFirstSearch(GameState& state, GameState& goalState, int& nodesExpande
 			temp->depth = initialState->depth + 1;
 			frontier.push(temp);
 			exploredSet.push_back(temp);
-			std::cout << "state 4 pushed into frontier" << std::endl;
+			//std::cout << "state 2 pushed into frontier" << std::endl;
 		}
 	}
 	return NULL;
 		
 }
 
+/*******************************************************************************************************************
+* Function Name: bfs
+* Description: runs through bfs version of the chicken and wolves problem, for additional comments: see astar
+* Parameters: GameState& state, GameState& goalState, int& nodesExpanded
+* Output: path of nodes leading to goal or no solution.
+******************************************************************************************************************/
+
 Node* breadthFirstSearch(GameState& state, GameState& goalState, int& nodesExpanded) {
-	std::queue<Node*> frontier;
+	nodesExpanded = 0;
+	std::queue<Node*> frontier; //normal queue needed for bfs, uses a FIFO ordering to pick nodes for expansion
 	std::vector<Node*> exploredSet;
 	Node* initialState = new Node();
 	initialState->currentState = state;
@@ -361,14 +389,15 @@ Node* breadthFirstSearch(GameState& state, GameState& goalState, int& nodesExpan
 		frontier.pop(); //remove the value at the front from the frontier
 		std::cout << "Chickens on left, right bank: " << initialState->currentState.leftBank.getNumChickens() << "," << initialState->currentState.rightBank.getNumChickens() << std::endl;
 		std::cout << "Wolves on left, right bank: " << initialState->currentState.leftBank.getNumWolves() << "," << initialState->currentState.rightBank.getNumWolves() << std::endl;
+		//nodesExpanded++;
 		if (initialState->currentState == goalState) { //compare the two objects using our overloaded operator to compare two GameStates.
 			std::cout << "Goal state found" << std::endl;
 			return initialState;
 		}
 
 		nodesExpanded++; //increment the number of nodes we expanded upon if we have failed to find the goal state.
-		GameState successorState0;
-		move(initialState->currentState, &successorState0, 1, 1);
+		GameState successorState0; //see astar
+		move(initialState->currentState, &successorState0, 1, 0);
 		if (checkExplored(exploredSet, successorState0) == 0 && validSuccessor(&successorState0)) {
 			temp = new Node();
 			temp->currentState = successorState0;
@@ -376,7 +405,7 @@ Node* breadthFirstSearch(GameState& state, GameState& goalState, int& nodesExpan
 			temp->depth = initialState->depth + 1;
 			frontier.push(temp);
 			exploredSet.push_back(temp);
-			std::cout << "state 0 pushed into frontier" << std::endl;
+			//std::cout << "state 3 pushed into frontier" << std::endl;
 		}
 		GameState successorState1;
 		move(initialState->currentState, &successorState1, 2, 0);
@@ -387,10 +416,10 @@ Node* breadthFirstSearch(GameState& state, GameState& goalState, int& nodesExpan
 			temp->depth = initialState->depth + 1;
 			frontier.push(temp);
 			exploredSet.push_back(temp);
-			std::cout << "state 1 pushed into frontier" << std::endl;
+			//std::cout << "state 1 pushed into frontier" << std::endl;
 		}
 		GameState successorState2;
-		move(initialState->currentState, &successorState2, 0, 2);
+		move(initialState->currentState, &successorState2, 0, 1);
 		if (checkExplored(exploredSet, successorState2) == 0 && validSuccessor(&successorState2)) {
 			temp = new Node();
 			temp->currentState = successorState2;
@@ -398,10 +427,10 @@ Node* breadthFirstSearch(GameState& state, GameState& goalState, int& nodesExpan
 			temp->depth = initialState->depth + 1;
 			frontier.push(temp);
 			exploredSet.push_back(temp);
-			std::cout << "state 2 pushed into frontier" << std::endl;
+			//std::cout << "state 4 pushed into frontier" << std::endl;
 		}
 		GameState successorState3;
-		move(initialState->currentState, &successorState3, 1, 0);
+		move(initialState->currentState, &successorState3, 1, 1);
 		if (checkExplored(exploredSet, successorState3) == 0 && validSuccessor(&successorState3)) {
 			temp = new Node();
 			temp->currentState = successorState3;
@@ -409,10 +438,10 @@ Node* breadthFirstSearch(GameState& state, GameState& goalState, int& nodesExpan
 			temp->depth = initialState->depth + 1;
 			frontier.push(temp);
 			exploredSet.push_back(temp);
-			std::cout << "state 3 pushed into frontier" << std::endl;
+			//std::cout << "state 0 pushed into frontier" << std::endl;
 		}
 		GameState successorState4;
-		move(initialState->currentState, &successorState4, 0, 1);
+		move(initialState->currentState, &successorState4, 0, 2);
 		if (checkExplored(exploredSet, successorState4) == 0 && validSuccessor(&successorState4)) {
 			temp = new Node();
 			temp->currentState = successorState4;
@@ -420,11 +449,260 @@ Node* breadthFirstSearch(GameState& state, GameState& goalState, int& nodesExpan
 			temp->depth = initialState->depth + 1;
 			frontier.push(temp);
 			exploredSet.push_back(temp);
-			std::cout << "state 4 pushed into frontier" << std::endl;
+			//std::cout << "state 2 pushed into frontier" << std::endl;
 		}
 	}
 	return NULL;
 }
+
+/*******************************************************************************************************************
+* Function Name: iddfs
+* Description: runs through iddfs version of the chicken and wolves problem, for additional comments: see astar
+* Parameters: GameState& state, GameState& goalState, int& nodesExpanded
+* Output: path of nodes leading to goal or no solution.
+******************************************************************************************************************/
+
+Node* iddfs(GameState& state, GameState& goalState, int& nodesExpanded) {
+	nodesExpanded = 0;
+	int d = 0; //current depth counter that IDDFS uses to check for paths until
+	int maxD = 100; //the max depth to check for goal paths
+	std::stack<Node*> frontier; //the frontier. It is a stack of nodes that we will expand upon in LIFO order.
+	std::vector<Node*> exploredSet; //contains the set of nodes we've expanded (the explored set).
+
+	while (1) {
+		Node* initialState = new Node();
+		initialState->currentState = state; //set the initial state to the initial state from the file
+		initialState->previous = NULL; //there is no state before the initial state.
+		initialState->depth = 0;
+		frontier.push(initialState);
+		exploredSet.push_back(initialState);
+
+		Node* temp;
+		while (!(frontier.empty())) { //while there are still nodes in the frontier
+			initialState = frontier.top(); //store the last value in the frontier in the initial state
+			frontier.pop(); //pop the last value from the frontier off (pop it off of the stack)
+			std::cout << "Chickens on left, right bank: " << initialState->currentState.leftBank.getNumChickens() << "," << initialState->currentState.rightBank.getNumChickens() << std::endl;
+			std::cout << "Wolves on left, right bank: " << initialState->currentState.leftBank.getNumWolves() << "," << initialState->currentState.rightBank.getNumWolves() << std::endl;
+			//nodesExpanded++;
+
+			if (initialState->depth < maxD) { //if the node's depth is less than the max depth (chosen by programmer)
+				d = initialState->depth; //update the depth iterator for iddfs
+			}
+
+			if (initialState->currentState == goalState) { //compare the two objects using our overloaded operator to compare two GameStates.
+				std::cout << "Goal state found" << std::endl;
+				return initialState;
+			}
+
+			if (initialState->depth == maxD) { //about to exceed the maxD
+				continue; //skip through the rest of the while loop
+			}
+
+			nodesExpanded++; //increment the number of nodes we expanded upon if we have failed to find the goal state.
+			GameState successorState0; //see astar
+			move(initialState->currentState, &successorState0, 1, 0);
+			if (checkExplored(exploredSet, successorState0) == 0 && validSuccessor(&successorState0)) {
+				temp = new Node();
+				temp->currentState = successorState0;
+				temp->previous = initialState;
+				temp->depth = initialState->depth + 1;
+				frontier.push(temp);
+				exploredSet.push_back(temp);
+				//std::cout << "state 3 pushed into frontier" << std::endl;
+			}
+			GameState successorState1;
+			move(initialState->currentState, &successorState1, 2, 0);
+			if (checkExplored(exploredSet, successorState1) == 0 && validSuccessor(&successorState1)) {
+				temp = new Node();
+				temp->currentState = successorState1;
+				temp->previous = initialState;
+				temp->depth = initialState->depth + 1;
+				frontier.push(temp);
+				exploredSet.push_back(temp);
+				//std::cout << "state 1 pushed into frontier" << std::endl;
+			}
+			GameState successorState2;
+			move(initialState->currentState, &successorState2, 0, 1);
+			if (checkExplored(exploredSet, successorState2) == 0 && validSuccessor(&successorState2)) {
+				temp = new Node();
+				temp->currentState = successorState2;
+				temp->previous = initialState;
+				temp->depth = initialState->depth + 1;
+				frontier.push(temp);
+				exploredSet.push_back(temp);
+				//std::cout << "state 4 pushed into frontier" << std::endl;
+			}
+			GameState successorState3;
+			move(initialState->currentState, &successorState3, 1, 1);
+			if (checkExplored(exploredSet, successorState3) == 0 && validSuccessor(&successorState3)) {
+				temp = new Node();
+				temp->currentState = successorState3;
+				temp->previous = initialState;
+				temp->depth = initialState->depth + 1;
+				frontier.push(temp);
+				exploredSet.push_back(temp);
+				//std::cout << "state 0 pushed into frontier" << std::endl;
+			}
+			GameState successorState4;
+			move(initialState->currentState, &successorState4, 0, 2);
+			if (checkExplored(exploredSet, successorState4) == 0 && validSuccessor(&successorState4)) {
+				temp = new Node();
+				temp->currentState = successorState4;
+				temp->previous = initialState;
+				temp->depth = initialState->depth + 1;
+				frontier.push(temp);
+				exploredSet.push_back(temp);
+				//std::cout << "state 2 pushed into frontier" << std::endl;
+			}
+		}
+		d++;
+
+		if (d > maxD) {
+			return NULL;
+		}
+
+		maxD++;
+
+		d = 0;
+		refreshStates(exploredSet); //clear all elements of the explored set
+		exploredSet.clear(); //clears all memory within the vector
+	}
+
+	return NULL;
+}
+
+/*******************************************************************************************************************
+* Function Name: astar
+* Description: runs through astar version of the chicken and wolves problem
+* Parameters: GameState& state, GameState& goalState, int& nodesExpanded
+* Output: path of nodes leading to goal or no solution.
+******************************************************************************************************************/
+
+Node* astar(GameState& state, GameState& goalState, int& nodesExpanded) {
+	nodesExpanded = 0;
+	std::priority_queue<Node*> frontier; //the frontier. A priority queue as needed for astar.Determines the ordering of the nodes to be expanded
+	std::vector<Node*> exploredSet; //contains the set of nodes we've expanded (the explored set).
+	Node* initialState = new Node();
+	initialState->currentState = state; //set the initial state to the initial state from the file
+	initialState->previous = NULL; //there is no state before the initial state.
+	initialState->depth = 0;
+	initialState->priority = goalState.leftBank.numObjects() - state.leftBank.numObjects(); //how we will judge the priority value for the queue (should be 0 initially)
+	frontier.push(initialState); //push the first node onto the pqueue
+	exploredSet.push_back(initialState); //add it to the explored nodes
+
+	Node* temp; //created for changing object values
+	while (!(frontier.empty())) { //while there are still nodes in the frontier
+		initialState = frontier.top(); //store the last value in the frontier in the initial state
+		frontier.pop(); //pop the last value from the frontier off (pop it off of the stack)
+		//std::cout << "Chickens on left, right bank: " << initialState->currentState.leftBank.getNumChickens() << "," << initialState->currentState.rightBank.getNumChickens() << std::endl;
+		//std::cout << "Wolves on left, right bank: " << initialState->currentState.leftBank.getNumWolves() << "," << initialState->currentState.rightBank.getNumWolves() << std::endl;
+		//nodesExpanded++;
+		if (initialState->currentState == goalState) { //compare the two objects using our overloaded operator to compare two GameStates.
+			//std::cout << "Goal state found" << std::endl;
+			return initialState;
+		}
+		nodesExpanded++; //increment the number of nodes we expanded upon if we have failed to find the goal state.
+		GameState successorState0; //create a potential gamestate
+		move(initialState->currentState, &successorState0, 1, 0); //does the first move, as shown in the pdf (1 chicken)
+		if (checkExplored(exploredSet, successorState0) == 0 && validSuccessor(&successorState0)) { //makes sure the move is valid
+			temp = new Node(); //allocate memory
+			//store contents
+			temp->currentState = successorState0; 
+			temp->previous = initialState;
+			temp->depth = initialState->depth + 1;
+
+			heuristicFunc(temp, goalState); //check for the heuristic and store that value into priority field
+			frontier.push(temp); 
+			exploredSet.push_back(temp);
+			//std::cout << "state 3 pushed into frontier" << std::endl;
+		}
+		GameState successorState1; //continues but for the next move
+		move(initialState->currentState, &successorState1, 2, 0);
+		if (checkExplored(exploredSet, successorState1) == 0 && validSuccessor(&successorState1)) {
+			temp = new Node();
+			temp->currentState = successorState1;
+			temp->previous = initialState;
+			temp->depth = initialState->depth + 1;
+			heuristicFunc(temp, goalState);
+			frontier.push(temp);
+			exploredSet.push_back(temp);
+			//std::cout << "state 1 pushed into frontier" << std::endl;
+		}
+		GameState successorState2; //see above
+		move(initialState->currentState, &successorState2, 0, 1);
+		if (checkExplored(exploredSet, successorState2) == 0 && validSuccessor(&successorState2)) {
+			temp = new Node();
+			temp->currentState = successorState2;
+			temp->previous = initialState;
+			temp->depth = initialState->depth + 1;
+			heuristicFunc(temp, goalState);
+			frontier.push(temp);
+			exploredSet.push_back(temp);
+			//std::cout << "state 4 pushed into frontier" << std::endl;
+		}
+		GameState successorState3; //see above
+		move(initialState->currentState, &successorState3, 1, 1);
+		if (checkExplored(exploredSet, successorState3) == 0 && validSuccessor(&successorState3)) {
+			temp = new Node();
+			temp->currentState = successorState3;
+			temp->previous = initialState;
+			temp->depth = initialState->depth + 1;
+			heuristicFunc(temp, goalState);
+			frontier.push(temp);
+			exploredSet.push_back(temp);
+			//std::cout << "state 0 pushed into frontier" << std::endl;
+		}
+		GameState successorState4; //see above
+		move(initialState->currentState, &successorState4, 0, 2);
+		if (checkExplored(exploredSet, successorState4) == 0 && validSuccessor(&successorState4)) {
+			temp = new Node();
+			temp->currentState = successorState4;
+			temp->previous = initialState;
+			temp->depth = initialState->depth + 1;
+			heuristicFunc(temp, goalState);
+			frontier.push(temp);
+			exploredSet.push_back(temp);
+			//std::cout << "state 2 pushed into frontier" << std::endl;
+		}
+	}
+	return NULL;
+}
+
+/*******************************************************************************************************************
+* Function Name: heuristicFunc
+* Description: gives a priority value to specific actions/states depending on how close the total number of animals are between the state and goalstate
+* Parameters: potential successorNode, the goalState of the problem
+* Output: none
+******************************************************************************************************************/
+
+void heuristicFunc(Node *successorNode, GameState& goalState) {
+	int prio;
+	//because prio queue in C++ is a max heap
+	prio = (goalState.leftBank.numObjects() - successorNode->currentState.leftBank.numObjects()) * -1; 
+	successorNode->priority = prio;
+	//depends on how close the state is to the actual goal state, the closer it is to 0, the better the action
+}
+
+/*******************************************************************************************************************
+* Function Name: refreshStates
+* Description: clears the memory from the explored nodes vector
+* Parameters: the exploredSet
+* Output: none
+******************************************************************************************************************/
+
+void refreshStates(std::vector<Node*> exploredSet) {
+	std::vector <Node*>::iterator it;
+	for (it = exploredSet.begin(); it != exploredSet.end(); it++) {
+		delete (*it);
+	}
+}
+
+/*******************************************************************************************************************
+* Function Name: checkExplored
+* Description: iterates thru exploredSet of nodes and returns a bool based on if the successor node is explored already
+* Parameters: vector of explored NODES, potential successorstate
+* Output: bool
+******************************************************************************************************************/
 
 bool checkExplored(std::vector<Node*> exploredSet, GameState successorState) {
 	std::vector<Node*>::iterator temp;
@@ -436,6 +714,12 @@ bool checkExplored(std::vector<Node*> exploredSet, GameState successorState) {
 	return false; //else return false
 }
 
+/*******************************************************************************************************************
+* Function Name: move
+* Description: does the logistics of a move, which is determined by the num of animals passed in
+* Parameters: initialstate, potential successorstate, and the number of animals transported
+* Output: valid state change
+******************************************************************************************************************/
 
 void move(GameState initialState, GameState* successorState, int numChickens, int numWolves) {
 
@@ -467,14 +751,20 @@ void move(GameState initialState, GameState* successorState, int numChickens, in
 	}
 }
 
-
-
+/*******************************************************************************************************************
+* Function Name: validSuccessor
+* Description: makes sure the state is valid for an action
+* Parameters: a potential successorstate
+* Output: boolean value
+******************************************************************************************************************/
 
 bool validSuccessor(GameState* successorState) {
-	if ((successorState->leftBank.getNumChickens() >= successorState->leftBank.getNumWolves()) || (successorState->leftBank.getNumChickens() == 0)) {
+	//num chicks must be greater than or equal to num wolves, and there must be at least one thing to pilot boat back (for both banks)
+	if ((successorState->leftBank.getNumChickens() >= successorState->leftBank.getNumWolves()) || (successorState->leftBank.getNumChickens() == 0)) { 
 		if ((successorState->rightBank.getNumChickens() >= successorState->rightBank.getNumWolves()) || (successorState->rightBank.getNumChickens() == 0)) {
 			return true;
 		}
 	}
+	return false;
 }
 
