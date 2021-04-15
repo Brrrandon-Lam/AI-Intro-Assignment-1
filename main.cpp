@@ -6,6 +6,16 @@
 #include <queue>
 #include <stack>
 
+/****************************************************************************************************************************
+* Program: Intro to AI Assignment 1: Uninformed and Informed Search
+* Programmers: Brandon Lam and Aedan Mills
+* Description: Performs uninformed and informed search algorithms after receiving valid input for chicken & wolves game.
+*			   Input includes the initial state, the goal state, the type of algorithm to use and the output file.
+*			   The program will print the number of nodes expanded, the depth of the goal state found in the algorithm,
+*			   and the path from the initial state to the goal state into the output file. See the output file for
+*			   formatting.
+*****************************************************************************************************************************/
+
 //TEMPORARY GAME STRUCTURE
 /* TXT FILE STRUCTURE: 
 *  first line left: numChickens, numWolves, boat
@@ -35,6 +45,7 @@ class GameState {
 		//if all of those line up for left and right, then return true
 };
 
+//operator overload to compare two GameState objects properly. 
 bool operator== (GameState& left, GameState& right) {
 	bool b = true;
 	
@@ -81,6 +92,7 @@ int River::numObjects() {
 		BOATGANG = 1;
 	}
 	int total = getNumWolves() + getNumChickens() + BOATGANG;
+	return total;
 }
 
 // MUTATORS
@@ -183,7 +195,7 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 	if (goalPath == NULL) {
-		outputFOUT << "No solution found after expanding nodes\n" << std::endl;
+		outputFOUT << "No solution found after expanding " << nodesExpanded << " nodes\n" << std::endl;
 	}
 	else {
 		std::cout << "Writing contents to: " << outputFile << std::endl;
@@ -298,8 +310,8 @@ Node* depthFirstSearch(GameState& state, GameState& goalState, int& nodesExpande
 	while (!(frontier.empty())) { //while there are still nodes in the frontier
 		initialState = frontier.top(); //store the last value in the frontier in the initial state
 		frontier.pop(); //pop the last value from the frontier off (pop it off of the stack)
-		std::cout << "Chickens on left, right bank: " << initialState->currentState.leftBank.getNumChickens() << "," << initialState->currentState.rightBank.getNumChickens() << std::endl;
-		std::cout << "Wolves on left, right bank: " << initialState->currentState.leftBank.getNumWolves() << "," << initialState->currentState.rightBank.getNumWolves() << std::endl;
+		//std::cout << "Chickens on left, right bank: " << initialState->currentState.leftBank.getNumChickens() << "," << initialState->currentState.rightBank.getNumChickens() << std::endl;
+		//std::cout << "Wolves on left, right bank: " << initialState->currentState.leftBank.getNumWolves() << "," << initialState->currentState.rightBank.getNumWolves() << std::endl;
 		//nodesExpanded++;
 		if (initialState->currentState == goalState) { //compare the two objects using our overloaded operator to compare two GameStates.
 			std::cout << "Goal state found" << std::endl;
@@ -387,8 +399,8 @@ Node* breadthFirstSearch(GameState& state, GameState& goalState, int& nodesExpan
 	while (!(frontier.empty())) {
 		initialState = frontier.front(); //store the value at the front of the queue into the initial state
 		frontier.pop(); //remove the value at the front from the frontier
-		std::cout << "Chickens on left, right bank: " << initialState->currentState.leftBank.getNumChickens() << "," << initialState->currentState.rightBank.getNumChickens() << std::endl;
-		std::cout << "Wolves on left, right bank: " << initialState->currentState.leftBank.getNumWolves() << "," << initialState->currentState.rightBank.getNumWolves() << std::endl;
+		//std::cout << "Chickens on left, right bank: " << initialState->currentState.leftBank.getNumChickens() << "," << initialState->currentState.rightBank.getNumChickens() << std::endl;
+		//std::cout << "Wolves on left, right bank: " << initialState->currentState.leftBank.getNumWolves() << "," << initialState->currentState.rightBank.getNumWolves() << std::endl;
 		//nodesExpanded++;
 		if (initialState->currentState == goalState) { //compare the two objects using our overloaded operator to compare two GameStates.
 			std::cout << "Goal state found" << std::endl;
@@ -481,8 +493,8 @@ Node* iddfs(GameState& state, GameState& goalState, int& nodesExpanded) {
 		while (!(frontier.empty())) { //while there are still nodes in the frontier
 			initialState = frontier.top(); //store the last value in the frontier in the initial state
 			frontier.pop(); //pop the last value from the frontier off (pop it off of the stack)
-			std::cout << "Chickens on left, right bank: " << initialState->currentState.leftBank.getNumChickens() << "," << initialState->currentState.rightBank.getNumChickens() << std::endl;
-			std::cout << "Wolves on left, right bank: " << initialState->currentState.leftBank.getNumWolves() << "," << initialState->currentState.rightBank.getNumWolves() << std::endl;
+			//std::cout << "Chickens on left, right bank: " << initialState->currentState.leftBank.getNumChickens() << "," << initialState->currentState.rightBank.getNumChickens() << std::endl;
+			//std::cout << "Wolves on left, right bank: " << initialState->currentState.leftBank.getNumWolves() << "," << initialState->currentState.rightBank.getNumWolves() << std::endl;
 			//nodesExpanded++;
 
 			if (initialState->depth < maxD) { //if the node's depth is less than the max depth (chosen by programmer)
@@ -680,6 +692,7 @@ void heuristicFunc(Node *successorNode, GameState& goalState) {
 	//because prio queue in C++ is a max heap
 	prio = (goalState.leftBank.numObjects() - successorNode->currentState.leftBank.numObjects()) * -1; 
 	successorNode->priority = prio;
+	//std::cout << "Item pushed to queue with with priority value of: " << successorNode->priority << std::endl;
 	//depends on how close the state is to the actual goal state, the closer it is to 0, the better the action
 }
 
